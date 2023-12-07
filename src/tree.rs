@@ -64,6 +64,18 @@ impl<D, N: NodeId> Tree<D, N> {
         }
     }
 
+    pub fn is_branch(&self, id: &N) -> Result<bool, IdAbsent<N>> {
+        self.node(id).map(|n| n.is_branch())
+    }
+
+    pub fn is_leaf(&self, id: &N) -> Result<bool, IdAbsent<N>> {
+        self.node(id).map(|n| n.is_leaf())
+    }
+
+    pub fn is_root(&self, id: &N) -> Result<bool, IdAbsent<N>> {
+        self.node(id).map(|n| n.is_root())
+    }
+
     /// Extend tree from tuples of `(parent_id, child_id, child_data)`.
     /// Parents must already exist in the tree before a child is added.
     pub fn add_edges<I: IntoIterator<Item = (N, N, D)>>(

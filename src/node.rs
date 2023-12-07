@@ -110,4 +110,16 @@ impl<D, N: NodeId> Node<D, N> {
             out
         }
     }
+
+    pub fn is_branch(&self) -> bool {
+        self.children().len() > 1
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.parent.is_none()
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        self.children().len() == 0
+    }
 }
