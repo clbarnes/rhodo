@@ -17,3 +17,13 @@ pub enum InvalidId<N: NodeId> {
     #[error(transparent)]
     Absent(#[from] IdAbsent<N>),
 }
+
+#[derive(Debug, te::Error)]
+pub enum EdgeBuild<N: NodeId> {
+    #[error(transparent)]
+    Id(#[from] InvalidId<N>),
+    #[error("No root node")]
+    NoRoot,
+    #[error("Multiple roots found, including {0:?}")]
+    MultipleRoots(#[from] Vec<N>),
+}

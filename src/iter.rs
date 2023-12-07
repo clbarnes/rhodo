@@ -111,13 +111,6 @@ pub struct DfsEdges<'t, D, N: NodeId> {
 }
 
 impl<'t, D, N: NodeId> DfsEdges<'t, D, N> {
-    // fn new(tree: &'t Tree<D, N>) -> Self {
-    //     Self {
-    //         to_visit: vec![(None, tree.root)],
-    //         tree,
-    //     }
-    // }
-
     pub(crate) fn new_from(tree: &'t Tree<D, N>, root: N) -> Result<Self, IdAbsent<N>> {
         let node = tree.node(&root)?.parent();
         Ok(Self {
@@ -155,7 +148,7 @@ impl<'t, D, N: NodeId> SlabsIterator<'t, D, N> {
             .map(|c| (root, Some(*c)))
             .collect();
         if to_visit.is_empty() {
-            to_visit.push((tree.root, None))
+            to_visit.push((*tree.root(), None))
         }
         Ok(Self { to_visit, tree })
     }
@@ -188,7 +181,7 @@ impl<'t, D, N: NodeId> Iterator for SlabsIterator<'t, D, N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{make_basic, make_tree};
+    use crate::tests::make_basic;
 
     #[test]
     fn rootward_slab() {
