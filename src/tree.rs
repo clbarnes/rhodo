@@ -1,18 +1,20 @@
 use crate::error::{EdgeBuild, IdAbsent, IdPresent, InvalidId};
 use crate::{Node, NodeId};
 use std::collections::VecDeque;
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
-// only used internally
 use ahash::{AHashMap, AHashSet};
 
 use crate::iter::{DfsEdges, RootwardIterator, RootwardSlabIterator, SlabsIterator};
 
+pub type FastMap<K, V> = AHashMap<K, V>;
+pub type FastSet<T> = AHashSet<T>;
+
 pub struct Tree<D = (), N: NodeId = u64> {
-    nodes: AHashMap<N, Node<D, N>>,
+    nodes: FastMap<N, Node<D, N>>,
     root: N,
-    branches: AHashSet<N>,
-    leaves: AHashSet<N>,
+    branches: FastSet<N>,
+    leaves: FastSet<N>,
 }
 
 impl<D: Clone, N: NodeId> Clone for Tree<D, N> {
@@ -51,15 +53,15 @@ type Bisected<D, N> = (Option<Tree<D, N>>, Tree<D, N>);
 impl<D, N: NodeId> Tree<D, N> {
     /// Create a new tree with a root node.
     pub fn new(root_id: N, root_data: D) -> Self {
-        let mut nodes = AHashMap::default();
+        let mut nodes = FastMap::default();
         nodes.insert(root_id, Node::new(root_id, root_data));
-        let mut leaves = AHashSet::default();
+        let mut leaves = FastSet::default();
         leaves.insert(root_id);
 
         Self {
             nodes,
             root: root_id,
-            branches: AHashSet::default(),
+            branches: FastSet::default(),
             leaves,
         }
     }
@@ -320,9 +322,9 @@ impl<D, N: NodeId> Tree<D, N> {
         };
 
         // could use existing as capacity guide?
-        let mut nodes = AHashMap::default();
-        let mut branches = AHashSet::default();
-        let mut leaves = AHashSet::default();
+        let mut nodes = FastMap::default();
+        let mut branches = FastSet::default();
+        let mut leaves = FastSet::default();
 
         let to_transfer: Vec<_> = self.dfs(new_root).unwrap().collect();
 
@@ -388,15 +390,15 @@ impl<D, N: NodeId> Tree<D, N> {
         self.nodes.len()
     }
 
-    pub fn strahler(&self) -> HashMap<N, usize> {
-        let mut out = HashMap::with_capacity(self.len());
+    pub fn strahler(&self) -> FastMap<N, usize> {
+        let mut out = FastMap::with_capacity(self.len());
         let mut to_visit = VecDeque::default();
         for lf in self.leaves.iter() {
             out.insert(*lf, 1);
             to_visit.push_back(*lf);
         }
 
-        let mut visited_branches = AHashSet::with_capacity(self.branches.len() + 1);
+        let mut visited_branches = FastSet::with_capacity(self.branches.len() + 1);
 
         while let Some(distal) = to_visit.pop_front() {
             let this_strahler = *out.get(&distal).unwrap();
