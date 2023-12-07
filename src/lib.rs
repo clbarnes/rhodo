@@ -6,6 +6,7 @@ mod node;
 pub use node::{Node, NodeId};
 
 mod util;
+pub use util::{FastMap, FastSet};
 
 mod tree;
 pub use tree::Tree;

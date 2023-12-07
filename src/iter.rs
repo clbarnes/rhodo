@@ -65,7 +65,7 @@ impl<'t, D, N: NodeId> Iterator for LeafwardSlabIterator<'t, D, N> {
         let to_return = self.curr_id?;
         let children = self.tree.node(&to_return).ok()?.children();
         if children.len() == 1 {
-            self.curr_id = Some(*children.first().unwrap());
+            self.curr_id = children.iter().cloned().next();
         } else {
             self.curr_id = None;
         }
@@ -102,7 +102,7 @@ impl<'t, D, N: NodeId> Iterator for RootwardIterator<'t, D, N> {
     }
 }
 
-/// Iterator over edges in depth-first pre-order, with children addressed in reverse insertion order.
+/// Iterator over edges in depth-first pre-order, with children addressed in arbitrary order.
 ///
 /// Only the first item's first element may be None.
 pub struct DfsEdges<'t, D, N: NodeId> {

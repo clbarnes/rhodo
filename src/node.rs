@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use crate::error::IdAbsent;
-use crate::util::remove_value;
+use crate::util::FastSet;
 
 pub trait NodeId: Debug + Copy + Hash + Eq {}
 
@@ -14,7 +14,7 @@ impl<T: Debug + Copy + Hash + Eq> NodeId for T {}
 pub struct Node<D, N: NodeId = u64> {
     id: N,
     pub(crate) parent: Option<N>,
-    pub(crate) children: Vec<N>, // could be set - iteration determinism vs membership test efficiency
+    pub(crate) children: FastSet<N>, // could be set - iteration determinism vs membership test efficiency
     data: D,
 }
 
@@ -51,7 +51,7 @@ impl<D, N: NodeId> Node<D, N> {
         Self {
             id,
             parent: None,
-            children: Vec::default(),
+            children: FastSet::default(),
             data,
         }
     }
@@ -64,7 +64,7 @@ impl<D, N: NodeId> Node<D, N> {
         &mut self.data
     }
 
-    pub fn children(&self) -> &[N] {
+    pub fn children(&self) -> &FastSet<N> {
         &self.children
     }
 
@@ -77,20 +77,20 @@ impl<D, N: NodeId> Node<D, N> {
     }
 
     pub(crate) fn remove_child(&mut self, id: &N) -> bool {
-        remove_value(&mut self.children, id)
+        self.children.remove(id)
     }
 
     /// Given the ID of one of the child nodes, make that child the node's new parent.
     /// Returns the previous parent, if present.
     pub(crate) fn switch_parent(&mut self, id: Option<N>) -> Result<Option<N>, IdAbsent<N>> {
         if let Some(c) = id {
-            if !remove_value(&mut self.children, &c) {
+            if !self.remove_child(&c) {
                 return Err(c.into());
             }
         }
         let old_parent_opt = self.parent;
         if let Some(old_parent) = old_parent_opt {
-            self.children.push(old_parent);
+            self.children.insert(old_parent);
         }
         self.parent = id;
         Ok(old_parent_opt)

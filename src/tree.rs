@@ -3,12 +3,8 @@ use crate::{Node, NodeId};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 
-use ahash::{AHashMap, AHashSet};
-
 use crate::iter::{DfsEdges, RootwardIterator, RootwardSlabIterator, SlabsIterator};
-
-pub type FastMap<K, V> = AHashMap<K, V>;
-pub type FastSet<T> = AHashSet<T>;
+use crate::util::{FastMap, FastSet};
 
 pub struct Tree<D = (), N: NodeId = u64> {
     nodes: FastMap<N, Node<D, N>>,
@@ -134,7 +130,7 @@ impl<D, N: NodeId> Tree<D, N> {
             .nodes
             .get_mut(&parent_id)
             .ok_or(IdAbsent::from(parent_id))?;
-        parent.children.push(child_id);
+        parent.children.insert(child_id);
 
         if parent.children.len() == 2 {
             self.branches.insert(parent_id);
@@ -179,7 +175,7 @@ impl<D, N: NodeId> Tree<D, N> {
         }
         let parent = self.node_mut(&parent_id)?;
         for child_id in removed.children.iter() {
-            parent.children.push(*child_id);
+            parent.children.insert(*child_id);
         }
         Ok(removed)
     }
@@ -203,7 +199,7 @@ impl<D, N: NodeId> Tree<D, N> {
                 Err(IdAbsent::from(id))?;
             }
 
-            parent.children.push(id);
+            parent.children.insert(id);
         }
 
         let child = self.node_mut(&child_id)?;
@@ -211,7 +207,7 @@ impl<D, N: NodeId> Tree<D, N> {
 
         let mut new = Node::new(id, data);
         new.parent = Some(parent_id);
-        new.children.push(child_id);
+        new.children.insert(child_id);
 
         Ok(self.nodes.entry(id).or_insert(new))
     }
@@ -227,7 +223,7 @@ impl<D, N: NodeId> Tree<D, N> {
             old_root.parent = Some(id);
 
             let mut new = Node::new(id, data);
-            new.children.push(old_root.id());
+            new.children.insert(old_root.id());
             new
         };
 
@@ -250,7 +246,7 @@ impl<D, N: NodeId> Tree<D, N> {
         RootwardIterator::new(self, id)
     }
 
-    /// Get an iterator of node IDs from the given ID to its descendants in depth-first pre-order with children addressed in reverse insertion order.
+    /// Get an iterator of node IDs from the given ID to its descendants in depth-first pre-order with children addressed in arbitrary order.
     ///
     /// Uses `.dfs_edges()` internally.
     pub fn dfs(&self, id: N) -> Result<impl Iterator<Item = N> + '_, IdAbsent<N>> {
@@ -259,7 +255,7 @@ impl<D, N: NodeId> Tree<D, N> {
 
     /// Get an iterator of `(parent, child, &data)`.
     ///
-    /// Depth-first pre-order with children addressed in reverse insertion order.
+    /// Depth-first pre-order with children addressed in arbitrary order.
     /// `parent` may be `None` in the first item only, if that item's second element is the tree root.
     pub fn dfs_edges(
         &self,
