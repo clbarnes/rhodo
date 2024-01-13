@@ -46,6 +46,12 @@ impl<D: Clone, N: NodeId> Clone for Node<D, N> {
     }
 }
 
+pub enum NodeType<'s, N: NodeId> {
+    Leaf,
+    Slab(N),
+    Branch(&'s FastSet<N>),
+}
+
 impl<D, N: NodeId> Node<D, N> {
     pub(crate) fn new(id: N, data: D) -> Self {
         Self {
@@ -111,15 +117,16 @@ impl<D, N: NodeId> Node<D, N> {
         }
     }
 
-    pub fn is_branch(&self) -> bool {
-        self.children().len() > 1
+    pub fn node_type(&self) -> NodeType<N> {
+        let c = self.children();
+        match c.len() {
+            0 => NodeType::Leaf,
+            1 => NodeType::Slab(*c.iter().next().unwrap()),
+            _ => NodeType::Branch(c),
+        }
     }
 
     pub fn is_root(&self) -> bool {
         self.parent.is_none()
-    }
-
-    pub fn is_leaf(&self) -> bool {
-        self.children().len() == 0
     }
 }

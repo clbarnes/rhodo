@@ -1,13 +1,12 @@
 use crate::error::{EdgeBuild, IdAbsent, IdPresent, InvalidId};
 use crate::{Node, NodeId};
-use std::collections::VecDeque;
 use std::fmt::Debug;
 
-use crate::iter::{DfsEdges, RootwardIterator, RootwardSlabIterator, SlabsIterator};
+use crate::iter::{DfsEdges, RootwardIterator, SlabsIterator};
 use crate::util::{FastMap, FastSet};
 
 pub struct Tree<D = (), N: NodeId = u64> {
-    nodes: FastMap<N, Node<D, N>>,
+    pub(crate) nodes: FastMap<N, Node<D, N>>,
     root: N,
     branches: FastSet<N>,
     leaves: FastSet<N>,
@@ -44,6 +43,66 @@ impl<D, N: NodeId> PartialEq for Tree<D, N> {
     }
 }
 
+/// Struct representing a Strahler number calculation for a single branch node.
+#[derive(Debug, Clone, Default)]
+struct StrahlerCounter {
+    children_remaining: usize,
+    /// Counts of how many children have a given Strahler number
+    child_strahlers: FastMap<usize, usize>,
+}
+
+impl StrahlerCounter {
+    fn new(n_children: usize) -> Self {
+        Self {
+            children_remaining: n_children,
+            child_strahlers: FastMap::with_capacity(n_children),
+        }
+    }
+
+    /// Register a child node as having a particular Strahler number.
+    ///
+    /// If there are no more children to count,
+    /// return [Some] containing the branch's Strahler number;
+    /// otherwise, return [None].
+    fn add(&mut self, child_strahler: usize) -> Option<usize> {
+        self.child_strahlers
+            .entry(child_strahler)
+            .and_modify(|e| *e += 1)
+            .or_insert(1);
+        self.children_remaining = self.children_remaining.saturating_sub(1);
+        if self.children_remaining == 0 {
+            Some(self.index())
+        } else {
+            None
+        }
+    }
+
+    /// Calculate the Strahler number based on the existing registered children.
+    ///
+    /// If the highest child Strahler number is held by a single child,
+    /// return that.
+    /// If it is shared by more than one child, return that plus one.
+    fn index(&self) -> usize {
+        let (num, count) =
+            self.child_strahlers
+                .iter()
+                .fold((0, 0), |(num, count), (this_num, this_count)| {
+                    if this_num > &num {
+                        (*this_num, *this_count)
+                    } else {
+                        (num, count)
+                    }
+                });
+
+        match count {
+            // no children
+            0 => 1,
+            1 => num,
+            _ => num + 1,
+        }
+    }
+}
+
 type Bisected<D, N> = (Option<Tree<D, N>>, Tree<D, N>);
 
 impl<D, N: NodeId> Tree<D, N> {
@@ -60,18 +119,6 @@ impl<D, N: NodeId> Tree<D, N> {
             branches: FastSet::default(),
             leaves,
         }
-    }
-
-    pub fn is_branch(&self, id: &N) -> Result<bool, IdAbsent<N>> {
-        self.node(id).map(|n| n.is_branch())
-    }
-
-    pub fn is_leaf(&self, id: &N) -> Result<bool, IdAbsent<N>> {
-        self.node(id).map(|n| n.is_leaf())
-    }
-
-    pub fn is_root(&self, id: &N) -> Result<bool, IdAbsent<N>> {
-        self.node(id).map(|n| n.is_root())
     }
 
     /// Extend tree from tuples of `(parent_id, child_id, child_data)`.
@@ -122,7 +169,7 @@ impl<D, N: NodeId> Tree<D, N> {
         child_data: D,
     ) -> Result<&Node<D, N>, InvalidId<N>> {
         // todo: error: child exists, parent does not exist
-        if self.contains(&child_id) {
+        if self.has_node(&child_id) {
             Err(IdPresent::from(child_id))?;
         }
 
@@ -145,13 +192,13 @@ impl<D, N: NodeId> Tree<D, N> {
     }
 
     /// Check whether a node exists.
-    pub fn contains(&self, node_id: &N) -> bool {
+    pub fn has_node(&self, node_id: &N) -> bool {
         self.nodes.contains_key(node_id)
     }
 
     /// Check whether an edge exists.
     /// If either node does not exist, returns false.
-    pub fn contains_edge(&self, parent_id: &N, child_id: &N) -> bool {
+    pub fn has_edge(&self, parent_id: &N, child_id: &N) -> bool {
         let Ok(child) = self.node(child_id) else {
             return false;
         };
@@ -162,22 +209,71 @@ impl<D, N: NodeId> Tree<D, N> {
         }
     }
 
+    // fn update_node_type(&mut self, id: N, n_children: Option<usize>) -> Result<(), IdAbsent<N>> {
+    //     let n = if let Some(n) = n_children {
+    //         n
+    //     } else {
+    //         self.node(&id)?.children().len()
+    //     };
+    //     match n {
+    //         0 => {
+    //             self.branches.remove(&id);
+    //             self.leaves.insert(id);
+    //         }
+    //         1 => {
+    //             self.branches.remove(&id);
+    //             self.leaves.remove(&id);
+    //         }
+    //         _ => {
+    //             self.leaves.remove(&id);
+    //             self.branches.insert(id);
+    //         }
+    //     };
+    //     Ok(())
+    // }
+
     /// Remove an existing non-root node, returning its former state.
+    ///
+    /// Creates edges from the node's parent to its children.
     pub fn remove(&mut self, id: N) -> Result<Node<D, N>, IdAbsent<N>> {
-        if self.root == id {
-            panic!("Cannot remove the root node");
-        }
-        let removed = self.nodes.remove(&id).ok_or(IdAbsent::from(id))?;
+        let removed = self.remove_unchecked(id)?;
         let parent_id = removed.parent.expect("Removed the root");
 
         for child_id in removed.children.iter() {
             self.node_mut(child_id)?.parent = Some(parent_id);
         }
+
         let parent = self.node_mut(&parent_id)?;
+        parent.children.remove(&id);
         for child_id in removed.children.iter() {
             parent.children.insert(*child_id);
         }
+
+        match parent.children.len() {
+            0 => {
+                self.branches.remove(&id);
+                self.leaves.insert(id);
+            }
+            1 => {
+                self.branches.remove(&id);
+                self.leaves.remove(&id);
+            }
+            _ => {
+                self.leaves.remove(&id);
+                self.branches.insert(id);
+            }
+        };
         Ok(removed)
+    }
+
+    /// Removes a non-root node without creating edges from its parent to its children.
+    pub(crate) fn remove_unchecked(&mut self, id: N) -> Result<Node<D, N>, IdAbsent<N>> {
+        if self.root == id {
+            panic!("Cannot remove the root node");
+        }
+        self.branches.remove(&id);
+        self.leaves.remove(&id);
+        self.nodes.remove(&id).ok_or(IdAbsent::from(id))
     }
 
     /// Add a new node in between two nodes which already have an edge between them.
@@ -188,7 +284,7 @@ impl<D, N: NodeId> Tree<D, N> {
         parent_id: N,
         child_id: N,
     ) -> Result<&Node<D, N>, InvalidId<N>> {
-        if self.contains(&id) {
+        if self.has_node(&id) {
             Err(IdPresent::from(id))?;
         }
 
@@ -214,7 +310,7 @@ impl<D, N: NodeId> Tree<D, N> {
 
     /// Add a node which is a parent to the current root.
     pub fn add_root(&mut self, id: N, data: D) -> Result<&Node<D, N>, InvalidId<N>> {
-        if self.contains(&id) {
+        if self.has_node(&id) {
             Err(IdPresent::from(id))?;
         }
         let old_root_id = self.root;
@@ -236,9 +332,21 @@ impl<D, N: NodeId> Tree<D, N> {
         self.nodes.get(id).ok_or(IdAbsent::from(*id))
     }
 
+    pub fn nodes(&self) -> &FastMap<N, Node<D, N>> {
+        &self.nodes
+    }
+
     /// Get a mutable reference to the node struct with the given ID.
-    pub fn node_mut(&mut self, id: &N) -> Result<&mut Node<D, N>, IdAbsent<N>> {
+    pub(crate) fn node_mut(&mut self, id: &N) -> Result<&mut Node<D, N>, IdAbsent<N>> {
         self.nodes.get_mut(id).ok_or(IdAbsent::from(*id))
+    }
+
+    pub fn data(&self, id: &N) -> Result<&D, IdAbsent<N>> {
+        self.node(id).map(|n| n.data())
+    }
+
+    pub fn data_mut(&mut self, id: &N) -> Result<&mut D, IdAbsent<N>> {
+        self.node_mut(id).map(|n| n.data_mut())
     }
 
     /// Get an iterator of node IDs from the given ID to the root.
@@ -261,7 +369,7 @@ impl<D, N: NodeId> Tree<D, N> {
         &self,
         id: N,
     ) -> Result<impl Iterator<Item = (Option<N>, N, &D)> + '_, IdAbsent<N>> {
-        DfsEdges::new_from(self, id)
+        DfsEdges::new(self, id)
     }
 
     /// Get an iterator of vecs of unbranched nodes.
@@ -271,7 +379,7 @@ impl<D, N: NodeId> Tree<D, N> {
     ///
     /// Nodes are visited in the same order as in `my_tree.dfs(my_tree.root)`.
     pub fn slabs(&self, id: &N) -> Result<impl Iterator<Item = Vec<N>> + '_, IdAbsent<N>> {
-        SlabsIterator::new_from_root(self, *id)
+        SlabsIterator::new(self, *id)
     }
 
     /// Re-root the tree at the given node.
@@ -302,16 +410,17 @@ impl<D, N: NodeId> Tree<D, N> {
     /// (which may be `None` if the given node was the original root);
     /// the second element is the part of the tree below the cut, rooted at the given node.
     pub fn bisect(mut self, new_root: N) -> Result<Bisected<D, N>, IdAbsent<N>> {
+        use crate::node::NodeType::*;
         // break the existing edges by removing parent and child relationships
         let root_mut = self.node_mut(&new_root)?;
         let Some(old_parent_id) = root_mut.parent else {
             return Ok((None, self));
         };
         root_mut.parent = None;
-        let parent_mut = self.node_mut(&old_parent_id).unwrap();
-        parent_mut.remove_child(&new_root);
+        let old_parent = self.node_mut(&old_parent_id).unwrap();
+        old_parent.remove_child(&new_root);
         // also need to update leaves and branches on parent node
-        match parent_mut.children().len() {
+        match old_parent.children().len() {
             0 => self.leaves.insert(old_parent_id),
             1 => self.branches.remove(&old_parent_id),
             _ => false, // doesn't matter, discarded
@@ -325,12 +434,12 @@ impl<D, N: NodeId> Tree<D, N> {
         let to_transfer: Vec<_> = self.dfs(new_root).unwrap().collect();
 
         for node_id in to_transfer.into_iter() {
-            let node = self.nodes.remove(&node_id).unwrap();
-            if self.branches.remove(&node_id) {
-                branches.insert(node_id);
-            } else if self.leaves.remove(&node_id) {
-                leaves.insert(node_id);
-            }
+            let node = self.remove_unchecked(node_id).unwrap();
+            match node.node_type() {
+                Leaf => leaves.insert(node_id),
+                Branch(_) => branches.insert(node_id),
+                _ => false, // discarded
+            };
             nodes.insert(node_id, node);
         }
 
@@ -346,7 +455,7 @@ impl<D, N: NodeId> Tree<D, N> {
     }
 
     /// Break up tree into runs of nodes, where each one ends with a leaf,
-    /// the last is guaranteed to contain the root and the leaf furthest from the root,
+    /// the last is guaranteed to contain the root and the leaf the longest path from the root,
     /// and all others start with a branch.
     ///
     /// e.g.
@@ -387,36 +496,33 @@ impl<D, N: NodeId> Tree<D, N> {
     }
 
     pub fn strahler(&self) -> FastMap<N, usize> {
+        let mut branch_strahlers: FastMap<_, _> = self
+            .branches
+            .iter()
+            .map(|n| {
+                (
+                    *n,
+                    StrahlerCounter::new(self.node(n).unwrap().children().len()),
+                )
+            })
+            .collect();
+
         let mut out = FastMap::with_capacity(self.len());
-        let mut to_visit = VecDeque::default();
-        for lf in self.leaves.iter() {
-            out.insert(*lf, 1);
-            to_visit.push_back(*lf);
-        }
 
-        let mut visited_branches = FastSet::with_capacity(self.branches.len() + 1);
-
-        while let Some(distal) = to_visit.pop_front() {
-            let this_strahler = *out.get(&distal).unwrap();
-            let mut it = RootwardSlabIterator::new(self, &distal).unwrap();
-            it.next().unwrap();
-
-            if let Some(last_id) = it
-                .map(|n| {
-                    out.entry(n)
-                        .and_modify(|s| {
-                            if s == &this_strahler {
-                                *s += 1
-                            }
-                        })
-                        .or_insert(this_strahler);
-                    n
-                })
-                .last()
-            {
-                if visited_branches.insert(last_id) {
-                    to_visit.push_back(last_id);
+        for leaf in self.leaves.iter() {
+            let mut this_strahler = 1;
+            out.insert(*leaf, this_strahler);
+            for proximal in self.ancestors(*leaf).unwrap() {
+                // if it's a branch...
+                if let Some(prox_count) = branch_strahlers.get_mut(&proximal) {
+                    // if this is the last child of this branch...
+                    if let Some(s) = prox_count.add(this_strahler) {
+                        this_strahler = s;
+                    } else {
+                        break;
+                    }
                 }
+                out.insert(proximal, this_strahler);
             }
         }
 

@@ -11,15 +11,21 @@ pub struct RootwardSlabIterator<'t, D, N: NodeId> {
 }
 
 impl<'t, D, N: NodeId> RootwardSlabIterator<'t, D, N> {
+    #[cfg(test)]
     pub(crate) fn new(tree: &'t Tree<D, N>, id: &N) -> Result<Self, IdAbsent<N>> {
-        if !tree.contains(id) {
+        if !tree.has_node(id) {
             return Err(IdAbsent::from(*id));
         }
-        Ok(Self {
+        Ok(Self::new_unchecked(tree, id))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_unchecked(tree: &'t Tree<D, N>, id: &N) -> Self {
+        Self {
             curr_id: Some(*id),
             tree,
             first: true,
-        })
+        }
     }
 }
 
@@ -48,13 +54,17 @@ pub struct LeafwardSlabIterator<'t, D, N: NodeId> {
 
 impl<'t, D, N: NodeId> LeafwardSlabIterator<'t, D, N> {
     pub(crate) fn new(tree: &'t Tree<D, N>, id: &N) -> Result<Self, IdAbsent<N>> {
-        if !tree.contains(id) {
+        if !tree.has_node(id) {
             return Err(IdAbsent::from(*id));
         }
-        Ok(Self {
+        Ok(Self::new_unchecked(tree, id))
+    }
+
+    pub(crate) fn new_unchecked(tree: &'t Tree<D, N>, id: &N) -> Self {
+        Self {
             curr_id: Some(*id),
             tree,
-        })
+        }
     }
 }
 
@@ -82,13 +92,17 @@ pub struct RootwardIterator<'t, D, N: NodeId> {
 
 impl<'t, D, N: NodeId> RootwardIterator<'t, D, N> {
     pub(crate) fn new(tree: &'t Tree<D, N>, id: N) -> Result<Self, IdAbsent<N>> {
-        if !tree.contains(&id) {
+        if !tree.has_node(&id) {
             return Err(IdAbsent::from(id));
         }
-        Ok(Self {
+        Ok(Self::new_unchecked(tree, id))
+    }
+
+    pub(crate) fn new_unchecked(tree: &'t Tree<D, N>, id: N) -> Self {
+        Self {
             curr_id: Some(id),
             tree,
-        })
+        }
     }
 }
 
@@ -105,19 +119,24 @@ impl<'t, D, N: NodeId> Iterator for RootwardIterator<'t, D, N> {
 /// Iterator over edges in depth-first pre-order, with children addressed in arbitrary order.
 ///
 /// Only the first item's first element may be None.
+/// If it is Some, it will refer to a node which will not appear elsewhere in the DFS:
+/// be careful if trying to construct a new tree from this!
 pub struct DfsEdges<'t, D, N: NodeId> {
     to_visit: Vec<(Option<N>, N)>,
     tree: &'t Tree<D, N>,
 }
 
 impl<'t, D, N: NodeId> DfsEdges<'t, D, N> {
-    pub(crate) fn new_from(tree: &'t Tree<D, N>, root: N) -> Result<Self, IdAbsent<N>> {
+    pub(crate) fn new(tree: &'t Tree<D, N>, root: N) -> Result<Self, IdAbsent<N>> {
+        // do we really want to get the node's actual parent here, or just use None?
         let node = tree.node(&root)?.parent();
         Ok(Self {
             to_visit: vec![(node, root)],
             tree,
         })
     }
+
+    // no unchecked variant because we're looking for the node parent anyway
 }
 
 impl<'t, D, N: NodeId> Iterator for DfsEdges<'t, D, N> {
@@ -140,7 +159,7 @@ pub struct SlabsIterator<'t, D, N: NodeId> {
 }
 
 impl<'t, D, N: NodeId> SlabsIterator<'t, D, N> {
-    pub(crate) fn new_from_root(tree: &'t Tree<D, N>, root: N) -> Result<Self, IdAbsent<N>> {
+    pub(crate) fn new(tree: &'t Tree<D, N>, root: N) -> Result<Self, IdAbsent<N>> {
         let root_node = tree.node(&root)?;
         let mut to_visit: Vec<(N, Option<N>)> = root_node
             .children()
@@ -148,7 +167,7 @@ impl<'t, D, N: NodeId> SlabsIterator<'t, D, N> {
             .map(|c| (root, Some(*c)))
             .collect();
         if to_visit.is_empty() {
-            to_visit.push((*tree.root(), None))
+            to_visit.push((root, None))
         }
         Ok(Self { to_visit, tree })
     }

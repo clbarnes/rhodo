@@ -11,6 +11,9 @@ pub use util::{FastMap, FastSet};
 mod tree;
 pub use tree::Tree;
 
+mod spatial;
+pub use spatial::Location;
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
