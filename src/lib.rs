@@ -1,3 +1,5 @@
+pub use fastrand;
+
 pub mod iter;
 
 pub mod error;
@@ -13,6 +15,8 @@ pub use tree::Tree;
 
 mod spatial;
 pub use spatial::Location;
+
+pub mod debug;
 
 #[cfg(test)]
 pub(crate) mod tests {

@@ -121,6 +121,14 @@ impl<D, N: NodeId> Tree<D, N> {
         }
     }
 
+    pub fn leaves(&self) -> &FastSet<N> {
+        &self.leaves
+    }
+
+    pub fn branches(&self) -> &FastSet<N> {
+        &self.branches
+    }
+
     /// Extend tree from tuples of `(parent_id, child_id, child_data)`.
     /// Parents must already exist in the tree before a child is added.
     pub fn add_edges<I: IntoIterator<Item = (N, N, D)>>(
@@ -536,6 +544,8 @@ impl<D, N: NodeId> Tree<D, N> {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use crate::debug::TreeGen;
+
     use super::*;
 
     type Simple = Tree<(), u64>;
@@ -550,12 +560,50 @@ pub(crate) mod tests {
         t
     }
 
+    pub fn rand_tree<D, F: Fn(usize, &mut fastrand::Rng) -> D>(
+        rng: &mut fastrand::Rng,
+        n_nodes: usize,
+        termination_p: f64,
+        branch_p: f64,
+        data_fn: F,
+    ) -> Tree<D, usize> {
+        TreeGen::new(n_nodes, termination_p, branch_p, data_fn).gen(rng)
+    }
+
+    #[test]
+    fn can_fuzz_tree() {
+        let n = 10_000;
+        let termination_p = 0.1;
+        let branch_p = 0.2;
+        let mut rng = fastrand::Rng::with_seed(1991);
+        for _ in 0..10 {
+            let t = rand_tree(&mut rng, n, termination_p, branch_p, |_, _| ());
+            assert_eq!(t.len(), n)
+        }
+    }
+
+    pub fn format_tree<N: NodeId + Ord, D: Debug>(t: Tree<D, N>) -> String {
+        let mut s = String::new();
+        t.format_tree(&mut s).unwrap();
+        s
+    }
+
     /// ```text
     /// 1─2─3─4
     ///   └─5
     /// ```
     pub fn make_basic() -> Simple {
         make_tree(vec![vec![1, 2, 3, 4], vec![2, 5]])
+    }
+
+    #[test]
+    fn fmt_tree() {
+        let t = make_basic();
+        let _s = format_tree(t);
+        let mut rng = fastrand::Rng::with_seed(1991);
+        let t2 = rand_tree(&mut rng, 10_000, 0.1, 0.2, |_, _| ());
+        let _s2 = format_tree(t2);
+        // panic!("\n{s2}\n");
     }
 
     #[test]

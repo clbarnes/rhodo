@@ -48,7 +48,9 @@ impl<D: Clone, N: NodeId> Clone for Node<D, N> {
 
 pub enum NodeType<'s, N: NodeId> {
     Leaf,
+    /// Contains the ID of the child
     Slab(N),
+    /// Contains the IDs of the children
     Branch(&'s FastSet<N>),
 }
 
