@@ -39,8 +39,10 @@ impl<N: NodeId + Ord, D: Debug> Tree<D, N> {
 pub struct TreeGen<D, F: Fn(usize, &mut fastrand::Rng) -> D> {
     pub n_nodes: usize,
     /// The chance of a node being a leaf.
+    /// Ignored if this would end the tree prematurely.
     pub leaf: f64,
-    /// The chance of an extra child being added to a node (repeats until failure).
+    /// The chance of an extra child being added to a non-leaf node (repeats until failure).
+    /// Ignored if this would overrun the desired number of nodes.
     pub branch_p: f64,
     /// A function to calculate the node's data based on its ID and a random number generator.
     pub data_fn: F,

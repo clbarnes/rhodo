@@ -12,7 +12,7 @@ mod tree;
 pub use tree::Tree;
 
 mod spatial;
-pub use spatial::Location;
+pub use spatial::{Location, Point};
 
 #[cfg(any(feature = "debug", test))]
 pub mod debug;

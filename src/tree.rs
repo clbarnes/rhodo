@@ -217,29 +217,6 @@ impl<D, N: NodeId> Tree<D, N> {
         }
     }
 
-    // fn update_node_type(&mut self, id: N, n_children: Option<usize>) -> Result<(), IdAbsent<N>> {
-    //     let n = if let Some(n) = n_children {
-    //         n
-    //     } else {
-    //         self.node(&id)?.children().len()
-    //     };
-    //     match n {
-    //         0 => {
-    //             self.branches.remove(&id);
-    //             self.leaves.insert(id);
-    //         }
-    //         1 => {
-    //             self.branches.remove(&id);
-    //             self.leaves.remove(&id);
-    //         }
-    //         _ => {
-    //             self.leaves.remove(&id);
-    //             self.branches.insert(id);
-    //         }
-    //     };
-    //     Ok(())
-    // }
-
     /// Remove an existing non-root node, returning its former state.
     ///
     /// Creates edges from the node's parent to its children.
@@ -327,7 +304,7 @@ impl<D, N: NodeId> Tree<D, N> {
             old_root.parent = Some(id);
 
             let mut new = Node::new(id, data);
-            new.children.insert(old_root.id());
+            new.children.insert(old_root_id);
             new
         };
 
