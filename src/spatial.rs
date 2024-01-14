@@ -5,36 +5,42 @@ use num_traits::Zero;
 use crate::{FastMap, Node, NodeId, Tree};
 
 pub type Precision = f64;
-pub type Point3 = [Precision; 3];
+pub type Point<const D: usize> = [Precision; D];
 
-pub trait Location {
-    fn location(&self) -> Point3;
+pub trait Location<const D: usize> {
+    fn location(&self) -> Point<D>;
 
     /// The squared euclidean distance to another location.
-    fn distance2_to<L: Location>(&self, other: &L) -> Precision {
-        let mut squares_total = 0.0;
-        for (a, b) in self.location().iter().zip(other.location().iter()) {
-            let diff = a - b;
-            squares_total += diff * diff;
-        }
-        squares_total
+    fn distance2_to<L: Location<D>>(&self, other: &L) -> Precision {
+        self.location()
+            .iter()
+            .zip(other.location().iter())
+            .map(|(a, b)| {
+                let diff = a - b;
+                diff * diff
+            })
+            .sum()
     }
 
     /// The euclidean distance to another location.
-    fn distance_to<L: Location>(&self, other: &L) -> Precision {
+    fn distance_to<L: Location<D>>(&self, other: &L) -> Precision {
         self.distance2_to(other).sqrt()
     }
 
     /// Where you would end up if you travelled `distance` towards `other`,
     /// and the overshoot: how far past the point you have travelled
     /// (negative if the point was not reached).
-    fn project_towards<L: Location>(&self, other: &L, distance: Precision) -> (Point3, Precision) {
+    fn project_towards<L: Location<D>>(
+        &self,
+        other: &L,
+        distance: Precision,
+    ) -> (Point<D>, Precision) {
         let self_loc = self.location();
         let distance_to = self.distance_to(other);
         if distance_to * distance == 0.0 {
             return (self_loc, 0.0);
         }
-        let mut out = [0.0, 0.0, 0.0];
+        let mut out = [0.0; D];
         for (idx, (a, b)) in self_loc.iter().zip(other.location().iter()).enumerate() {
             let diff = b - a;
             out[idx] = a + (diff / distance_to) * distance;
@@ -43,43 +49,43 @@ pub trait Location {
     }
 }
 
-impl Location for Point3 {
-    fn location(&self) -> Point3 {
+impl<const D: usize> Location<D> for Point<D> {
+    fn location(&self) -> Point<D> {
         *self
     }
 }
 
-impl Location for &Point3 {
-    fn location(&self) -> Point3 {
+impl<const D: usize> Location<D> for &Point<D> {
+    fn location(&self) -> Point<D> {
         **self
     }
 }
 
-impl<T, L: Location> Location for (T, L) {
-    fn location(&self) -> Point3 {
+impl<const D: usize, T, L: Location<D>> Location<D> for (T, L) {
+    fn location(&self) -> Point<D> {
         self.1.location()
     }
 }
 
-impl<T, L: Location> Location for &(T, L) {
-    fn location(&self) -> Point3 {
+impl<const D: usize, T, L: Location<D>> Location<D> for &(T, L) {
+    fn location(&self) -> Point<D> {
         self.1.location()
     }
 }
 
-impl<D: Location, N: NodeId> Location for Node<D, N> {
-    fn location(&self) -> Point3 {
+impl<const D: usize, L: Location<D>, N: NodeId> Location<D> for Node<L, N> {
+    fn location(&self) -> Point<D> {
         self.data().location()
     }
 }
 
-impl<D: Location, N: NodeId> Location for &Node<D, N> {
-    fn location(&self) -> Point3 {
+impl<const D: usize, L: Location<D>, N: NodeId> Location<D> for &Node<L, N> {
+    fn location(&self) -> Point<D> {
         self.data().location()
     }
 }
 
-impl<D: Location, N: NodeId> Tree<D, N> {
+impl<L: Location<3>, N: NodeId> Tree<L, N> {
     /// Total length of all edges in the tree.
     pub fn length(&self) -> Precision {
         self.dfs_edges(*self.root())
@@ -195,6 +201,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    type Point3 = Point<3>;
 
     type SpatialTree = Tree<Point3>;
 

@@ -466,11 +466,15 @@ impl<D, N: NodeId> Tree<D, N> {
     /// ```
     ///
     /// becomes `[[2, 5], [1, 2, 3, 4]]`.
-    pub fn runs(&self, root: &N) -> Result<Vec<Vec<N>>, IdAbsent<N>> {
+    pub(crate) fn runs(&self, root: &N) -> Result<Vec<Vec<N>>, IdAbsent<N>> {
+        // todo: this is all wrong
+
+        // first contains the root
         let mut slabs: Vec<_> = self.slabs(root)?.collect();
+        // slabs sharing a proximal node
         let mut shared_parent: Vec<Vec<N>> = Vec::default();
 
-        let mut out = Vec::default();
+        let mut out = Vec::with_capacity(self.leaves.len());
 
         while let Some(mut next_slab) = slabs.pop() {
             if shared_parent.is_empty()
