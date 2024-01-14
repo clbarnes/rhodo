@@ -563,21 +563,21 @@ pub(crate) mod tests {
     pub fn rand_tree<D, F: Fn(usize, &mut fastrand::Rng) -> D>(
         rng: &mut fastrand::Rng,
         n_nodes: usize,
-        termination_p: f64,
+        leaf_p: f64,
         branch_p: f64,
         data_fn: F,
     ) -> Tree<D, usize> {
-        TreeGen::new(n_nodes, termination_p, branch_p, data_fn).gen(rng)
+        TreeGen::new(n_nodes, leaf_p, branch_p, data_fn).gen(rng)
     }
 
     #[test]
     fn can_fuzz_tree() {
         let n = 10_000;
-        let termination_p = 0.1;
+        let leaf_p = 0.1;
         let branch_p = 0.2;
         let mut rng = fastrand::Rng::with_seed(1991);
         for _ in 0..10 {
-            let t = rand_tree(&mut rng, n, termination_p, branch_p, |_, _| ());
+            let t = rand_tree(&mut rng, n, leaf_p, branch_p, |_, _| ());
             assert_eq!(t.len(), n)
         }
     }

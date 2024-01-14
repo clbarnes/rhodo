@@ -1,5 +1,6 @@
 use crate::{FastMap, NodeId, Tree};
 use ascii_tree::{write_tree, Tree as ATree};
+pub use fastrand;
 use std::{collections::VecDeque, fmt::Debug};
 
 impl<N: NodeId + Ord, D: Debug> Tree<D, N> {
