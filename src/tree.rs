@@ -465,34 +465,34 @@ impl<D, N: NodeId> Tree<D, N> {
     /// ```
     ///
     /// becomes `[[2, 5], [1, 2, 3, 4]]`.
-    pub(crate) fn runs(&self, root: &N) -> Result<Vec<Vec<N>>, IdAbsent<N>> {
-        // todo: this is all wrong
+    // pub(crate) fn runs(&self, root: &N) -> Result<Vec<Vec<N>>, IdAbsent<N>> {
+    //     // todo: this is all wrong
 
-        // first contains the root
-        let mut slabs: Vec<_> = self.slabs(root)?.collect();
-        // slabs sharing a proximal node
-        let mut shared_parent: Vec<Vec<N>> = Vec::default();
+    //     // first contains the root
+    //     let mut slabs: Vec<_> = self.slabs(root)?.collect();
+    //     // slabs sharing a proximal node
+    //     let mut shared_parent: Vec<Vec<N>> = Vec::default();
 
-        let mut out = Vec::with_capacity(self.leaves.len());
+    //     let mut out = Vec::with_capacity(self.leaves.len());
 
-        while let Some(mut next_slab) = slabs.pop() {
-            if shared_parent.is_empty()
-                || next_slab.first().unwrap() == shared_parent.first().unwrap().first().unwrap()
-            {
-                shared_parent.push(next_slab);
-                continue;
-            }
-            shared_parent.sort_by_key(|v| v.len());
-            next_slab.extend(shared_parent.pop().unwrap().into_iter().skip(1));
-            out.append(&mut shared_parent);
-            shared_parent.push(next_slab);
-        }
+    //     while let Some(mut next_slab) = slabs.pop() {
+    //         if shared_parent.is_empty()
+    //             || next_slab.first().unwrap() == shared_parent.first().unwrap().first().unwrap()
+    //         {
+    //             shared_parent.push(next_slab);
+    //             continue;
+    //         }
+    //         shared_parent.sort_by_key(|v| v.len());
+    //         next_slab.extend(shared_parent.pop().unwrap().into_iter().skip(1));
+    //         out.append(&mut shared_parent);
+    //         shared_parent.push(next_slab);
+    //     }
 
-        shared_parent.sort_by_key(|v| v.len());
-        out.extend(shared_parent);
+    //     shared_parent.sort_by_key(|v| v.len());
+    //     out.extend(shared_parent);
 
-        Ok(out)
-    }
+    //     Ok(out)
+    // }
 
     fn len(&self) -> usize {
         self.nodes.len()
@@ -644,12 +644,12 @@ pub(crate) mod tests {
         // assert_eq!(slabs, vec![vec![1, 2], vec![2, 5], vec![2, 3, 4]]);
     }
 
-    #[test]
-    fn runs() {
-        let t = make_basic();
-        let runs = t.runs(t.root()).unwrap();
-        assert_eq!(runs, vec![vec![2, 5], vec![1, 2, 3, 4]]);
-    }
+    // #[test]
+    // fn runs() {
+    //     let t = make_basic();
+    //     let runs = t.runs(t.root()).unwrap();
+    //     assert_eq!(runs, vec![vec![2, 5], vec![1, 2, 3, 4]]);
+    // }
 
     #[test]
     fn bisect() {

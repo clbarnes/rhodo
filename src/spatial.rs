@@ -101,12 +101,24 @@ impl<L: Location<3>, N: NodeId> Tree<L, N> {
         if cap <= 1 {
             return dm;
         }
-        let edges: Vec<_> = self.dfs_edges(*self.root()).unwrap().collect();
-        for (idx, (_, c1, _)) in edges[..edges.len() - 1].iter().enumerate() {
-            for (p2_opt, c2, d2) in edges[idx + 1..].iter() {
-                let p2 = p2_opt.unwrap();
-                let p_dist = dm.get(c1, &p2).unwrap();
-                let edge_len = self.node(&p2).unwrap().distance_to(*d2);
+
+        // tuple of (parent, child, edge length)
+        let edges: Vec<_> = self
+            .dfs_edges(*self.root())
+            .unwrap()
+            .map(|(p_opt, c, d)| {
+                let dist = if let Some(p) = p_opt {
+                    self.node(&p).unwrap().distance_to(d)
+                } else {
+                    0.0
+                };
+                (p_opt, c, dist)
+            })
+            .collect();
+
+        for (idx1, (_, c1, _)) in edges[..edges.len() - 1].iter().enumerate() {
+            for (p2_opt, c2, edge_len) in edges[idx1 + 1..].iter() {
+                let p_dist = dm.get(c1, &p2_opt.unwrap()).unwrap();
                 dm.insert(c1, c2, p_dist + edge_len);
             }
         }
@@ -250,6 +262,7 @@ mod tests {
         let geo = t.geodesic_matrix();
         assert_geodesic(&geo, 1, 1, 0.0);
         assert_geodesic(&geo, 1, 4, 3.0);
+        assert_geodesic(&geo, 4, 1, 3.0);
         assert_geodesic(&geo, 1, 5, 2.0);
         assert_geodesic(&geo, 4, 5, 3.0);
     }
