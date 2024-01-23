@@ -20,7 +20,9 @@ pub mod hash;
 pub mod debug;
 
 #[cfg(feature = "swc-neuron")]
-mod swc;
+pub mod swc;
+#[cfg(feature = "swc-neuron")]
+pub use swc_neuron;
 
 #[cfg(test)]
 pub(crate) mod tests {
