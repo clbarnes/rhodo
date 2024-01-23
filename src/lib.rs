@@ -14,8 +14,13 @@ pub use tree::Tree;
 mod spatial;
 pub use spatial::{Location, Point};
 
+pub mod hash;
+
 #[cfg(any(feature = "debug", test))]
 pub mod debug;
+
+#[cfg(feature = "swc-neuron")]
+mod swc;
 
 #[cfg(test)]
 pub(crate) mod tests {

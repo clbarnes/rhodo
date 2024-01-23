@@ -121,6 +121,20 @@ impl<D, N: NodeId> Tree<D, N> {
         }
     }
 
+    pub fn map_data<D2, F: Fn(D) -> D2>(self, f: F) -> Tree<D2, N> {
+        let nodes = self
+            .nodes
+            .into_iter()
+            .map(|(k, n)| (k, n.map_data(&f)))
+            .collect();
+        Tree {
+            nodes,
+            root: self.root,
+            branches: self.branches,
+            leaves: self.leaves,
+        }
+    }
+
     pub fn leaves(&self) -> &FastSet<N> {
         &self.leaves
     }

@@ -64,6 +64,15 @@ impl<D, N: NodeId> Node<D, N> {
         }
     }
 
+    pub fn map_data<D2, F: Fn(D) -> D2>(self, f: F) -> Node<D2, N> {
+        Node {
+            id: self.id,
+            parent: self.parent,
+            children: self.children,
+            data: f(self.data),
+        }
+    }
+
     pub fn data(&self) -> &D {
         &self.data
     }

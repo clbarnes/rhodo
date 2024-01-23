@@ -1,7 +1,7 @@
-use ahash::{AHashMap, AHashSet};
+use crate::hash::{IndexMap, IndexSet};
 
-pub type FastMap<K, V> = AHashMap<K, V>;
-pub type FastSet<T> = AHashSet<T>;
+pub type FastMap<K, V> = IndexMap<K, V>;
+pub type FastSet<T> = IndexSet<T>;
 
 ///// Remove a value from a vec as if it were a hashset.
 ///// Used when node children were stored in order.
