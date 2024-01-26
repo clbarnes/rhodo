@@ -5,9 +5,6 @@ pub mod error;
 mod node;
 pub use node::{Node, NodeId};
 
-mod util;
-pub use util::{FastMap, FastSet};
-
 mod tree;
 pub use tree::Tree;
 
@@ -23,6 +20,11 @@ pub mod debug;
 pub mod swc;
 #[cfg(feature = "swc-neuron")]
 pub use swc_neuron;
+
+pub mod algos;
+
+mod surgeon;
+pub use surgeon::TreeSurgeon;
 
 #[cfg(test)]
 pub(crate) mod tests {

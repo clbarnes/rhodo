@@ -2,7 +2,8 @@ use std::ops::Add;
 
 use num_traits::Zero;
 
-use crate::{FastMap, Node, NodeId, Tree};
+use crate::hash::{FastMap, HashMapExt};
+use crate::{Node, NodeId, Tree};
 
 pub type Precision = f64;
 pub type Point<const D: usize> = [Precision; D];
@@ -212,6 +213,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::hash::FastMap;
+
     use super::*;
     type Point3 = Point<3>;
 

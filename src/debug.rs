@@ -1,4 +1,5 @@
-use crate::{FastMap, NodeId, Tree};
+use crate::hash::{FastMap, HashMapExt};
+use crate::{NodeId, Tree};
 use ascii_tree::{write_tree, Tree as ATree};
 pub use fastrand;
 use std::{collections::VecDeque, fmt::Debug};

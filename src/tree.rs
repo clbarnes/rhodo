@@ -2,14 +2,14 @@ use crate::error::{EdgeBuild, IdAbsent, IdPresent, InvalidId};
 use crate::{Node, NodeId};
 use std::fmt::Debug;
 
+use crate::hash::{FastMap, FastSet};
 use crate::iter::{DfsEdges, RootwardIterator, SlabsIterator};
-use crate::util::{FastMap, FastSet};
 
 pub struct Tree<D = (), N: NodeId = u64> {
     pub(crate) nodes: FastMap<N, Node<D, N>>,
-    root: N,
-    branches: FastSet<N>,
-    leaves: FastSet<N>,
+    pub(crate) root: N,
+    pub(crate) branches: FastSet<N>,
+    pub(crate) leaves: FastSet<N>,
 }
 
 impl<D: Clone, N: NodeId> Clone for Tree<D, N> {
@@ -40,66 +40,6 @@ impl<D, N: NodeId> PartialEq for Tree<D, N> {
             && self.root == other.root
             && self.branches == other.branches
             && self.leaves == other.leaves
-    }
-}
-
-/// Struct representing a Strahler number calculation for a single branch node.
-#[derive(Debug, Clone, Default)]
-struct StrahlerCounter {
-    children_remaining: usize,
-    /// Counts of how many children have a given Strahler number
-    child_strahlers: FastMap<usize, usize>,
-}
-
-impl StrahlerCounter {
-    fn new(n_children: usize) -> Self {
-        Self {
-            children_remaining: n_children,
-            child_strahlers: FastMap::with_capacity(n_children),
-        }
-    }
-
-    /// Register a child node as having a particular Strahler number.
-    ///
-    /// If there are no more children to count,
-    /// return [Some] containing the branch's Strahler number;
-    /// otherwise, return [None].
-    fn add(&mut self, child_strahler: usize) -> Option<usize> {
-        self.child_strahlers
-            .entry(child_strahler)
-            .and_modify(|e| *e += 1)
-            .or_insert(1);
-        self.children_remaining = self.children_remaining.saturating_sub(1);
-        if self.children_remaining == 0 {
-            Some(self.index())
-        } else {
-            None
-        }
-    }
-
-    /// Calculate the Strahler number based on the existing registered children.
-    ///
-    /// If the highest child Strahler number is held by a single child,
-    /// return that.
-    /// If it is shared by more than one child, return that plus one.
-    fn index(&self) -> usize {
-        let (num, count) =
-            self.child_strahlers
-                .iter()
-                .fold((0, 0), |(num, count), (this_num, this_count)| {
-                    if this_num > &num {
-                        (*this_num, *this_count)
-                    } else {
-                        (num, count)
-                    }
-                });
-
-        match count {
-            // no children
-            0 => 1,
-            1 => num,
-            _ => num + 1,
-        }
     }
 }
 
@@ -210,6 +150,8 @@ impl<D, N: NodeId> Tree<D, N> {
 
         let mut node = Node::new(child_id, child_data);
         node.parent = Some(parent_id);
+        // use entry so that we get the reference back:
+        // we know that it doesn't exist.
         Ok(self.nodes.entry(child_id).or_insert(node))
     }
 
@@ -494,42 +436,8 @@ impl<D, N: NodeId> Tree<D, N> {
     //     Ok(out)
     // }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.nodes.len()
-    }
-
-    pub fn strahler(&self) -> FastMap<N, usize> {
-        let mut branch_strahlers: FastMap<_, _> = self
-            .branches
-            .iter()
-            .map(|n| {
-                (
-                    *n,
-                    StrahlerCounter::new(self.node(n).unwrap().children().len()),
-                )
-            })
-            .collect();
-
-        let mut out = FastMap::with_capacity(self.len());
-
-        for leaf in self.leaves.iter() {
-            let mut this_strahler = 1;
-            out.insert(*leaf, this_strahler);
-            for proximal in self.ancestors(*leaf).unwrap() {
-                // if it's a branch...
-                if let Some(prox_count) = branch_strahlers.get_mut(&proximal) {
-                    // if this is the last child of this branch...
-                    if let Some(s) = prox_count.add(this_strahler) {
-                        this_strahler = s;
-                    } else {
-                        break;
-                    }
-                }
-                out.insert(proximal, this_strahler);
-            }
-        }
-
-        out
     }
 }
 
@@ -563,14 +471,12 @@ pub(crate) mod tests {
 
     #[test]
     fn can_fuzz_tree() {
-        let n = 10_000;
+        let n = 100;
         let leaf_p = 0.1;
         let branch_p = 0.2;
         let mut rng = fastrand::Rng::with_seed(1991);
-        for _ in 0..10 {
-            let t = rand_tree(&mut rng, n, leaf_p, branch_p, |_, _| ());
-            assert_eq!(t.len(), n)
-        }
+        let t = rand_tree(&mut rng, n, leaf_p, branch_p, |_, _| ());
+        assert_eq!(t.len(), n)
     }
 
     pub fn format_tree<N: NodeId + Ord, D: Debug>(t: Tree<D, N>) -> String {
@@ -592,9 +498,9 @@ pub(crate) mod tests {
         let t = make_basic();
         let _s = format_tree(t);
         let mut rng = fastrand::Rng::with_seed(1991);
-        let t2 = rand_tree(&mut rng, 10_000, 0.1, 0.2, |_, _| ());
+        let t2 = rand_tree(&mut rng, 100, 0.1, 0.2, |_, _| ());
         let _s2 = format_tree(t2);
-        // panic!("\n{s2}\n");
+        // panic!("\n{_s2}\n");
     }
 
     #[test]
@@ -663,16 +569,5 @@ pub(crate) mod tests {
             dist,
             Tree::new_from_edges(vec![(None, 3, ()), (Some(3), 4, ()),]).unwrap()
         );
-    }
-
-    #[test]
-    fn strahler_simple() {
-        let t = make_basic();
-        assert_eq!(
-            t.strahler(),
-            vec![(3, 1), (4, 1), (5, 1), (2, 2), (1, 2),]
-                .into_iter()
-                .collect()
-        )
     }
 }

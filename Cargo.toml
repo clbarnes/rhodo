@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ahash = "0.8.7"
 # ahash = {version = "0.8.6", default-features = false, features = ["compile-time-rng", "serde", "std"]}
 ascii_tree = {version = "0.1.1", optional = true }
 fastrand = {version = "2.0.1", optional = true }

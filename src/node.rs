@@ -2,8 +2,10 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use crate::error::IdAbsent;
-use crate::util::FastSet;
+use crate::hash::FastSet;
 
+/// Node IDs should have <= 8 bytes as the fast lookup tables
+/// used internally have very poor collision resistance.
 pub trait NodeId: Debug + Copy + Hash + Eq {}
 
 impl<T: Debug + Copy + Hash + Eq> NodeId for T {}
@@ -14,7 +16,7 @@ impl<T: Debug + Copy + Hash + Eq> NodeId for T {}
 pub struct Node<D, N: NodeId = u64> {
     id: N,
     pub(crate) parent: Option<N>,
-    pub(crate) children: FastSet<N>, // could be set - iteration determinism vs membership test efficiency
+    pub(crate) children: FastSet<N>,
     data: D,
 }
 
