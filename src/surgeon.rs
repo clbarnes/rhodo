@@ -97,6 +97,7 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
         Ok(count)
     }
 
+    /// Removes the slab containing the given node, and everything below it.
     pub fn prune_containing(&mut self, node: N) -> Result<usize, IdAbsent<N>> {
         let mut it = self.0.ancestors(node)?;
         let mut child = it.next().unwrap();
@@ -242,6 +243,9 @@ impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
             .sum()
     }
 
+    /// Remove short terminal branches.
+    ///
+    /// Recursive: if a branch has all but one of its children removed, it may be removed if the next branch up is close enough.
     pub fn prune_twigs(&mut self, threshold: Precision) -> usize {
         // todo: test this hard
 
