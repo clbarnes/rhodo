@@ -26,6 +26,8 @@ pub mod algos;
 mod surgeon;
 pub use surgeon::TreeSurgeon;
 
+mod resample;
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
