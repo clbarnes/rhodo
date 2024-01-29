@@ -1,16 +1,11 @@
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    hash::{BuildHasher, Hash},
-};
-
 use crate::{
     error::{IdAbsent, IdPresent, InvalidId},
-    hash::{FastMap, FastSet, HashMapExt},
-    iter::RootwardSlabIterator,
+    hash::{FastMap, FastSet},
     spatial::Precision,
     Location, NodeId, Tree,
 };
 
+/// Struct for splitting, pruning, and joining trees.
 pub struct TreeSurgeon<D, N: NodeId>(Tree<D, N>);
 
 impl<D, N: NodeId> From<Tree<D, N>> for TreeSurgeon<D, N> {
