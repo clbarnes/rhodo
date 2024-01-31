@@ -5,14 +5,14 @@ use crate::{
 
 /// Struct representing a Strahler number calculation for a single branch node.
 #[derive(Debug, Clone, Default)]
-struct StrahlerCounter {
+pub(crate) struct StrahlerCounter {
     children_remaining: usize,
     /// Counts of how many children have a given Strahler number
     child_strahlers: FastMap<usize, usize>,
 }
 
 impl StrahlerCounter {
-    fn new(n_children: usize) -> Self {
+    pub(crate) fn new(n_children: usize) -> Self {
         Self {
             children_remaining: n_children,
             child_strahlers: FastMap::with_capacity(n_children),
@@ -24,7 +24,7 @@ impl StrahlerCounter {
     /// If there are no more children to count,
     /// return [Some] containing the branch's Strahler number;
     /// otherwise, return [None].
-    fn add(&mut self, child_strahler: usize) -> Option<usize> {
+    pub(crate) fn add(&mut self, child_strahler: usize) -> Option<usize> {
         self.child_strahlers
             .entry(child_strahler)
             .and_modify(|e| *e += 1)

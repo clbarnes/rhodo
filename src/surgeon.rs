@@ -1,6 +1,7 @@
 use crate::{
+    algos::StrahlerCounter,
     error::{IdAbsent, IdPresent, InvalidId},
-    hash::{FastMap, FastSet},
+    hash::{FastMap, FastSet, HashMapExt},
     spatial::Precision,
     Location, NodeId, Tree,
 };
@@ -211,6 +212,56 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
             count += self.prune_below(p).unwrap();
         }
         count
+    }
+
+    pub fn prune_below_strahler(&mut self, threshold: usize) -> usize {
+        let mut branch_strahlers: FastMap<_, _> = self
+            .0
+            .branches()
+            .iter()
+            .map(|n| {
+                (
+                    *n,
+                    StrahlerCounter::new(self.0.node(n).unwrap().children().len()),
+                )
+            })
+            .collect();
+
+        let mut to_prune = vec![];
+
+        let mut child_strahlers = FastMap::with_capacity(self.0.len());
+
+        for leaf in self.0.leaves().iter() {
+            let mut this_strahler = 1;
+            let mut distal = *leaf;
+            for proximal in self.0.ancestors(*leaf).unwrap() {
+                // if it's a branch...
+                if let Some(prox_count) = branch_strahlers.get_mut(&proximal) {
+                    child_strahlers.insert(distal, this_strahler);
+                    // if this is the last child of this branch...
+                    if let Some(s) = prox_count.add(this_strahler) {
+                        if s == threshold {
+                            for c_id in self.0.node(&proximal).unwrap().children().iter() {
+                                if child_strahlers.get(c_id).unwrap() < &threshold {
+                                    to_prune.push(*c_id);
+                                }
+                            }
+                        } else if s > threshold {
+                            break;
+                        }
+                        this_strahler = s;
+                    } else {
+                        break;
+                    }
+                }
+                distal = proximal;
+            }
+        }
+
+        to_prune
+            .into_iter()
+            .map(|c| self.prune_below_including(c).unwrap_or(0))
+            .sum()
     }
 }
 
