@@ -1,6 +1,7 @@
 use std::io::{self, BufRead};
 
 pub use swc_neuron;
+use swc_neuron::SampleId;
 use swc_neuron::SwcParseError;
 use swc_neuron::{structures::StructureIdentifier, SwcSample};
 use thiserror::Error;
@@ -53,7 +54,7 @@ impl<S: StructureIdentifier> UpdateLocation<3> for SwcData<S> {
 
 pub fn swc_to_tree<S: StructureIdentifier, T: IntoIterator<Item = SwcSample<S>>>(
     samples: T,
-) -> Result<Tree<SwcData<S>, u64>, EdgeBuild<u64>> {
+) -> Result<Tree<SwcData<S>, SampleId>, EdgeBuild<SampleId>> {
     let mut it = samples.into_iter();
     let r = it.next().ok_or(EdgeBuild::NoRoot)?;
     if let Some(p) = r.parent_id {
@@ -86,7 +87,7 @@ impl<S: StructureIdentifier> HasSwcData<S> for SwcData<S> {
 }
 
 pub fn tree_to_swc<S: StructureIdentifier, D: HasSwcData<S>>(
-    tree: &Tree<D, u64>,
+    tree: &Tree<D, SampleId>,
 ) -> impl Iterator<Item = SwcSample<S>> + '_ {
     tree.dfs_edges(*tree.root()).unwrap().map(|(p, c, d)| {
         let loc = d.location();

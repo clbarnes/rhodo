@@ -13,7 +13,7 @@ fastrand = {version = "2.0.1", optional = true }
 num-traits = "0.2.17"
 serde = { version = "1.0.195", features= ["serde_derive"], optional = true }
 simples = "0.1.1"
-swc-neuron = { version = "0.4.0", optional = true }
+swc-neuron = { version = "0.4.1", optional = true }
 thiserror = "1.0.50"
 
 [features]
