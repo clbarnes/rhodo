@@ -110,6 +110,8 @@ pub fn resample_slabs<const K: usize, N: NodeId, D: Location<K>>(
 fn invert_keep<N: NodeId>(orig_ids: Vec<N>, to_keep: Vec<usize>, to_remove: &mut Vec<N>) {
     let mut orig_it = orig_ids.into_iter().enumerate();
     for keep_idx in to_keep.into_iter() {
+        // we can't use `for` loop here because it would own orig_it
+        #[allow(clippy::while_let_on_iterator)]
         while let Some((idx, orig)) = orig_it.next() {
             if idx >= keep_idx {
                 break;

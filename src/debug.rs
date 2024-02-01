@@ -31,7 +31,7 @@ impl<N: NodeId + Ord, D: Debug> Tree<D, N> {
             anodes.insert(nid, anode);
         }
         assert_eq!(anodes.len(), 1);
-        let anode = anodes.into_iter().map(|(_, v)| v).next().unwrap();
+        let anode = anodes.into_values().next().unwrap();
         write_tree(w, &anode)
     }
 }
