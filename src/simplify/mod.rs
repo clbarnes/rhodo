@@ -27,7 +27,11 @@ pub fn spatial_slab_simplify<const K: usize, N: NodeId, D: Location<K>>(
         return ParentDistance {
             path_length: 0,
             geodesic_distance: 0.0,
-            location: t.node(t.root()).expect("slab comes from tree").location(),
+            location: t
+                .node(t.root())
+                .expect("slab comes from tree")
+                .data()
+                .location(),
         };
     };
 
@@ -36,13 +40,13 @@ pub fn spatial_slab_simplify<const K: usize, N: NodeId, D: Location<K>>(
     let mut prev_node = sl_iter.next().unwrap();
     let mut dist = 0.0;
     for curr_node in sl_iter {
-        dist += prev_node.distance_to(curr_node);
+        dist += prev_node.data().distance_to(curr_node.data());
         prev_node = curr_node;
     }
     ParentDistance {
         path_length,
         geodesic_distance: dist,
-        location: prev_node.location(),
+        location: prev_node.data().location(),
     }
 }
 
@@ -94,7 +98,7 @@ pub fn resample_slabs<const K: usize, N: NodeId, D: Location<K>>(
     tree.slabs(tree.root()).unwrap().map(move |mut nids| {
         let mut pts = Vec::with_capacity(nids.len());
         while let Some(n) = nids.pop() {
-            pts.push(tree.node(&n).unwrap().location().into());
+            pts.push(tree.node(&n).unwrap().data().location().into());
         }
 
         // todo: break order by not bothering with this reversal?
@@ -135,7 +139,7 @@ fn decimate_nodes<
     for slab in tree.slabs(tree.root()).unwrap() {
         let locs: Vec<_> = slab
             .iter()
-            .map(|nid| tree.node(nid).unwrap().location().into())
+            .map(|nid| tree.node(nid).unwrap().data().location().into())
             .collect();
         let keepers = keeper(locs.as_slice());
         invert_keep(slab, keepers, &mut to_remove);
@@ -179,7 +183,7 @@ pub fn smooth_gaussian<const K: usize, D: UpdateLocation<K>, N: NodeId>(
     for slab in tree.slabs(tree.root()).unwrap() {
         let pts: Vec<NPoint<Precision, K>> = slab
             .iter()
-            .map(|n| tree.node(n).unwrap().location().into())
+            .map(|n| tree.node(n).unwrap().data().location().into())
             .collect();
         for (new_pt, n) in smooth_convolve(pts.as_slice(), kernel)
             .into_iter()
@@ -190,6 +194,6 @@ pub fn smooth_gaussian<const K: usize, D: UpdateLocation<K>, N: NodeId>(
     }
 
     for (n, loc) in new_locs.into_iter() {
-        tree.node_mut(&n).unwrap().update_location(loc);
+        tree.node_mut(&n).unwrap().data_mut().update_location(loc);
     }
 }

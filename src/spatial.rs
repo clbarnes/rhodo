@@ -3,7 +3,7 @@ use std::ops::Add;
 use num_traits::Zero;
 
 use crate::hash::{FastMap, HashMapExt};
-use crate::{Node, NodeId, Tree};
+use crate::{NodeId, Tree};
 
 pub type Precision = f64;
 pub type Point<const D: usize> = [Precision; D];
@@ -97,24 +97,26 @@ impl<const D: usize, T, L: UpdateLocation<D>> UpdateLocation<D> for (T, L) {
     }
 }
 
-impl<const D: usize, L: Location<D>, N: NodeId> Location<D> for Node<L, N> {
-    fn location(&self) -> Point<D> {
-        self.data().location()
-    }
-}
+// impl<const D: usize, L: Location<D>, N: NodeId> Location<D> for Node<L, N> {
+//     fn location(&self) -> Point<D> {
+//         self.data().location()
+//     }
+// }
 
-impl<const D: usize, N: NodeId, L: UpdateLocation<D>> UpdateLocation<D> for Node<L, N> {
-    fn update_location(&mut self, loc: Point<D>) {
-        self.data_mut().update_location(loc);
-    }
-}
+// impl<const D: usize, N: NodeId, L: UpdateLocation<D>> UpdateLocation<D> for Node<L, N> {
+//     fn update_location(&mut self, loc: Point<D>) {
+//         self.data_mut().update_location(loc);
+//     }
+// }
 
 impl<L: Location<3>, N: NodeId> Tree<L, N> {
     /// Total length of all edges in the tree.
     pub fn length(&self) -> Precision {
         self.dfs_edges(*self.root())
             .unwrap()
-            .filter_map(|(p_id, _, d)| p_id.map(|p_id| self.node(&p_id).unwrap().distance_to(d)))
+            .filter_map(|(p_id, _, d)| {
+                p_id.map(|p_id| self.node(&p_id).unwrap().data().distance_to(d))
+            })
             .sum()
     }
 
@@ -132,7 +134,7 @@ impl<L: Location<3>, N: NodeId> Tree<L, N> {
             .unwrap()
             .map(|(p_opt, c, d)| {
                 let dist = if let Some(p) = p_opt {
-                    self.node(&p).unwrap().distance_to(d)
+                    self.node(&p).unwrap().data().distance_to(d)
                 } else {
                     0.0
                 };

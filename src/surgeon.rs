@@ -274,7 +274,7 @@ impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
         while let Some((parent, from_root)) = to_visit.pop() {
             to_visit.extend(parent.children().iter().filter_map(|c| {
                 let child = self.0.node(c).unwrap();
-                let child_dist = from_root + parent.distance_to(child);
+                let child_dist = from_root + parent.data().distance_to(child.data());
                 if child_dist <= dist {
                     Some((child, child_dist))
                 } else {
@@ -315,7 +315,7 @@ impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
             };
 
             let prox_node = self.0.node(&prox_id).unwrap();
-            let edge_dist = distal_node.distance_to(prox_node);
+            let edge_dist = distal_node.data().distance_to(prox_node.data());
             dist += edge_dist;
             if dist > threshold {
                 // do not go higher, this branch cannot be pruned
