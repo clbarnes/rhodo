@@ -208,7 +208,7 @@ where
         let idx1 = { *self.indices.entry(*k1).or_insert_with(&mut clos) };
         let idx2 = { *self.indices.entry(*k2).or_insert_with(&mut clos) };
         let flat = self.flat_idx(idx1, idx2).unwrap();
-        self.distances.insert(flat, Some(dist))
+        self.distances[flat] = Some(dist);
     }
 
     pub(crate) fn flat_idx(&self, idx1: usize, idx2: usize) -> Option<usize> {
@@ -233,6 +233,22 @@ where
         let idx2 = self.indices.get(k2)?;
         let flat = self.flat_idx(*idx1, *idx2)?;
         self.distances.get(flat)?.clone()
+    }
+
+    pub fn into_map(&self) -> ahash::HashMap<(N, N), &T> {
+        let mut idxs: Vec<_> = self.indices.iter().map(|(k, v)| (*k, *v)).collect();
+        idxs.sort_by_key(|(_, idx)| *idx);
+
+        idxs[..idxs.len() - 1]
+            .iter()
+            .flat_map(|(k1, idx1)| {
+                idxs[idx1 + 1..].iter().filter_map(|(k2, idx2)| {
+                    let flat = self.flat_idx(*idx1, *idx2)?;
+                    let d = self.distances.get(flat)?.as_ref()?;
+                    Some(((*k1, *k2), d))
+                })
+            })
+            .collect()
     }
 }
 
