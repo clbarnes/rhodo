@@ -235,7 +235,8 @@ where
         self.distances.get(flat)?.clone()
     }
 
-    pub fn into_map(&self) -> ahash::HashMap<(N, N), &T> {
+    pub fn to_map(&self) -> ahash::HashMap<(N, N), &T> {
+        // todo: change this to into_, consume and return owned T
         let mut idxs: Vec<_> = self.indices.iter().map(|(k, v)| (*k, *v)).collect();
         idxs.sort_by_key(|(_, idx)| *idx);
 
