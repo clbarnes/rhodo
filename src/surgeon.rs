@@ -34,8 +34,8 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
         if !self.0.leaves.remove(&parent) {
             self.0.branches.insert(parent);
         }
-        self.0.leaves.extend(other.leaves.into_iter());
-        self.0.branches.extend(other.branches.into_iter());
+        self.0.leaves.extend(other.leaves);
+        self.0.branches.extend(other.branches);
         for (id, n) in other.nodes {
             if self.0.nodes.insert(id, n).is_some() {
                 Err(IdPresent::from(id))?;
@@ -59,16 +59,13 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
         for anc in self.0.ancestors(new_root)?.skip(1) {
             ancs.push(anc);
             let n = self.0.nodes.get(&anc).unwrap();
-            match n.node_type() {
-                crate::node::NodeType::Branch(cs) => {
-                    for c in cs.iter() {
-                        if c != &prev {
-                            to_prune_below.push(*c);
-                        }
+            if let crate::node::NodeType::Branch(cs) = n.node_type() {
+                for c in cs.iter() {
+                    if c != &prev {
+                        to_prune_below.push(*c);
                     }
                 }
-                _ => (),
-            }
+            };
             prev = anc;
         }
 
@@ -100,10 +97,9 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
 
         for parent in it {
             let n = self.0.node(&parent).unwrap();
-            match n.node_type() {
-                crate::node::NodeType::Branch(_) => break,
-                _ => (),
-            }
+            if let crate::node::NodeType::Branch(_) = n.node_type() {
+                break;
+            };
             child = parent;
         }
         self.prune_below(child)
@@ -240,15 +236,19 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
                     child_strahlers.insert(distal, this_strahler);
                     // if this is the last child of this branch...
                     if let Some(s) = prox_count.add(this_strahler) {
-                        if s == threshold {
-                            for c_id in self.0.node(&proximal).unwrap().children().iter() {
-                                if child_strahlers.get(c_id).unwrap() < &threshold {
-                                    to_prune.push(*c_id);
+                        match s.cmp(&threshold) {
+                            std::cmp::Ordering::Equal => {
+                                for c_id in self.0.node(&proximal).unwrap().children().iter() {
+                                    if child_strahlers.get(c_id).unwrap() < &threshold {
+                                        to_prune.push(*c_id);
+                                    }
                                 }
                             }
-                        } else if s > threshold {
-                            break;
-                        }
+                            std::cmp::Ordering::Greater => {
+                                break;
+                            }
+                            _ => (),
+                        };
                         this_strahler = s;
                     } else {
                         break;
@@ -333,7 +333,7 @@ impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
             // add the branch's child and distance from leaf to branch
             branch_children_dists
                 .entry(prox_id)
-                .or_insert_with(|| Vec::default())
+                .or_insert_with(Vec::default)
                 .push((distal_node.id(), dist));
 
             if !to_visit.is_empty() {

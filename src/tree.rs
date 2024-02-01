@@ -395,47 +395,7 @@ impl<D, N: NodeId> Tree<D, N> {
         ))
     }
 
-    /// Break up tree into runs of nodes, where each one ends with a leaf,
-    /// the last is guaranteed to contain the root and the leaf the longest path from the root,
-    /// and all others start with a branch.
-    ///
-    /// e.g.
-    ///
-    /// ```text
-    /// 1─2─3─4
-    ///   └─5
-    /// ```
-    ///
-    /// becomes `[[2, 5], [1, 2, 3, 4]]`.
-    // pub(crate) fn runs(&self, root: &N) -> Result<Vec<Vec<N>>, IdAbsent<N>> {
-    //     // todo: this is all wrong
-
-    //     // first contains the root
-    //     let mut slabs: Vec<_> = self.slabs(root)?.collect();
-    //     // slabs sharing a proximal node
-    //     let mut shared_parent: Vec<Vec<N>> = Vec::default();
-
-    //     let mut out = Vec::with_capacity(self.leaves.len());
-
-    //     while let Some(mut next_slab) = slabs.pop() {
-    //         if shared_parent.is_empty()
-    //             || next_slab.first().unwrap() == shared_parent.first().unwrap().first().unwrap()
-    //         {
-    //             shared_parent.push(next_slab);
-    //             continue;
-    //         }
-    //         shared_parent.sort_by_key(|v| v.len());
-    //         next_slab.extend(shared_parent.pop().unwrap().into_iter().skip(1));
-    //         out.append(&mut shared_parent);
-    //         shared_parent.push(next_slab);
-    //     }
-
-    //     shared_parent.sort_by_key(|v| v.len());
-    //     out.extend(shared_parent);
-
-    //     Ok(out)
-    // }
-
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.nodes.len()
     }

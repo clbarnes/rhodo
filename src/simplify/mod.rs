@@ -1,5 +1,15 @@
-use crate::{spatial::Precision, Location, Node, NodeId, Tree};
-use simples::simplify::{rdp::rdp_keep, sample_every, vw::vw_keep};
+use crate::{
+    hash::{FastMap, HashMapExt},
+    spatial::{Precision, UpdateLocation},
+    Location, Node, NodeId, Point, Tree,
+};
+use simples::{
+    nalgebra::Point as NPoint,
+    simplify::{rdp::rdp_keep, sample_every, vw::vw_keep},
+    smooth::{smooth_convolve, Gaussian},
+};
+
+const GAUSSIAN_WIDTH: Precision = 3.0;
 
 pub struct ParentDistance<const D: usize> {
     pub path_length: usize,
@@ -42,13 +52,7 @@ impl<const D: usize> Location<D> for ParentDistance<D> {
     }
 }
 
-impl<const D: usize> Location<D> for &ParentDistance<D> {
-    fn location(&self) -> crate::Point<D> {
-        self.location
-    }
-}
-
-/// Simplify a tree down to its root, branches, and leaves.
+/// Generate a simplified version of a tree: just root, branches, and leaves.
 ///
 /// `data_fn` is a function which generates the data to be stored on a node.
 /// It takes a reference to the original tree,
@@ -82,7 +86,7 @@ pub fn slab_simplify<N: NodeId, D, D2, F: Fn(&Tree<D, N>, Option<&[N]>) -> D2>(
 /// Sample points from this tree, slab-wise.
 ///
 /// All branches and leaves are included;
-/// otherwise, 1 point is included every `distance` along each slab.
+/// otherwise, 1 point is included every `distance` along each slab from leaf to root.
 pub fn resample_slabs<const K: usize, N: NodeId, D: Location<K>>(
     tree: &Tree<D, N>,
     distance: Precision,
@@ -140,6 +144,9 @@ fn decimate_nodes<
         .collect()
 }
 
+/// Simplify the tree by removing slab nodes using the [Ramer-Douglass-Peucker](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm) algorithm.
+///
+/// Returns the removed nodes.
 pub fn rdp_nodes<const K: usize, D: Location<K>, N: NodeId>(
     tree: &mut Tree<D, N>,
     epsilon: Precision,
@@ -147,9 +154,40 @@ pub fn rdp_nodes<const K: usize, D: Location<K>, N: NodeId>(
     decimate_nodes(tree, move |pts| rdp_keep(pts, epsilon))
 }
 
+/// Simplify the tree by removing slab nodes using the [Visvalingam-Whyatt](https://en.wikipedia.org/wiki/Visvalingam%E2%80%93Whyatt_algorithm) algorithm.
+///
+/// Returns the removed nodes.
 pub fn vw_nodes<const K: usize, D: Location<K>, N: NodeId>(
     tree: &mut Tree<D, N>,
     n_points: usize,
 ) -> Vec<Node<D, N>> {
     decimate_nodes(tree, move |pts| vw_keep(pts, n_points))
+}
+
+/// Smooth the points of each slab in the tree with a gaussian kernel.
+///
+/// The root, branches, and leaves stay in the same position.
+/// There is a cut-off 3 standard deviations away from the point in question.
+pub fn smooth_gaussian<const K: usize, D: UpdateLocation<K>, N: NodeId>(
+    tree: &mut Tree<D, N>,
+    stdev: Precision,
+) {
+    let mut new_locs: FastMap<N, Point<K>> = FastMap::with_capacity(tree.len());
+    let kernel = Gaussian::new(stdev, GAUSSIAN_WIDTH);
+    for slab in tree.slabs(tree.root()).unwrap() {
+        let pts: Vec<NPoint<Precision, K>> = slab
+            .iter()
+            .map(|n| tree.node(n).unwrap().location().into())
+            .collect();
+        for (new_pt, n) in smooth_convolve(pts.as_slice(), kernel)
+            .into_iter()
+            .zip(slab.into_iter())
+        {
+            new_locs.insert(n, new_pt.coords.into());
+        }
+    }
+
+    for (n, loc) in new_locs.into_iter() {
+        tree.node_mut(&n).unwrap().update_location(loc);
+    }
 }
