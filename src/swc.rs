@@ -1,5 +1,9 @@
+use std::io::{self, BufRead};
+
 pub use swc_neuron;
+use swc_neuron::SwcParseError;
 use swc_neuron::{structures::StructureIdentifier, SwcSample};
+use thiserror::Error;
 
 use crate::error::{EdgeBuild, IdAbsent, InvalidId};
 use crate::spatial::{Location, Point, UpdateLocation};
@@ -33,9 +37,23 @@ impl<S: StructureIdentifier> UpdateLocation<3> for SwcData<S> {
     }
 }
 
+// #[derive(Error, Debug)]
+// pub enum SwcReadError {
+//     #[error(transparent)]
+//     EdgeBuild(#[from] EdgeBuild<u64>),
+//     #[error(transparent)]
+//     Swc(#[from] SwcParseError),
+// }
+
+// pub fn read_swc<S: StructureIdentifier, R: BufRead>(
+//     reader: R,
+// ) -> Result<Tree<SwcData<S>, usize>, SwcReadError> {
+//     SwcLines::<S, R>::new(reader)?.filter()
+// }
+
 pub fn swc_to_tree<S: StructureIdentifier, T: IntoIterator<Item = SwcSample<S>>>(
     samples: T,
-) -> Result<Tree<SwcData<S>, usize>, EdgeBuild<usize>> {
+) -> Result<Tree<SwcData<S>, u64>, EdgeBuild<u64>> {
     let mut it = samples.into_iter();
     let r = it.next().ok_or(EdgeBuild::NoRoot)?;
     if let Some(p) = r.parent_id {
@@ -68,7 +86,7 @@ impl<S: StructureIdentifier> HasSwcData<S> for SwcData<S> {
 }
 
 pub fn tree_to_swc<S: StructureIdentifier, D: HasSwcData<S>>(
-    tree: &Tree<D, usize>,
+    tree: &Tree<D, u64>,
 ) -> impl Iterator<Item = SwcSample<S>> + '_ {
     tree.dfs_edges(*tree.root()).unwrap().map(|(p, c, d)| {
         let loc = d.location();

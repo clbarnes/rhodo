@@ -628,9 +628,9 @@ dependencies = [
 
 [[package]]
 name = "swc-neuron"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1db7db14fee561441646ba43db467f5a5ddfceba16845d8fa11b67ba6ebbed5e"
+checksum = "61cde64407d3740cca2480858e1ceb4bc06f124413a94230f3593fff95347880"
 dependencies = [
  "csv",
  "thiserror",
