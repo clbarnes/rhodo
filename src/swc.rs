@@ -2,7 +2,7 @@ pub use swc_neuron;
 use swc_neuron::{structures::StructureIdentifier, SwcSample};
 
 use crate::error::{EdgeBuild, IdAbsent, InvalidId};
-use crate::spatial::{Location, Point};
+use crate::spatial::{Location, Point, UpdateLocation};
 use crate::Tree;
 
 pub struct SwcData<S: StructureIdentifier> {
@@ -24,6 +24,12 @@ impl<S: StructureIdentifier> From<&SwcSample<S>> for SwcData<S> {
 impl<S: StructureIdentifier> Location<3> for SwcData<S> {
     fn location(&self) -> Point<3> {
         self.location
+    }
+}
+
+impl<S: StructureIdentifier> UpdateLocation<3> for SwcData<S> {
+    fn update_location(&mut self, loc: Point<3>) {
+        self.location = loc;
     }
 }
 

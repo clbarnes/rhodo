@@ -50,15 +50,38 @@ pub trait Location<const D: usize> {
     }
 }
 
+impl<const D: usize, T: Location<D>> Location<D> for &T {
+    fn location(&self) -> Point<D> {
+        (**self).location()
+    }
+}
+
+impl<const D: usize, T: Location<D>> Location<D> for &mut T {
+    fn location(&self) -> Point<D> {
+        (**self).location()
+    }
+}
+
+/// Trait for data which has a location which can be updated.
+pub trait UpdateLocation<const D: usize>: Location<D> {
+    fn update_location(&mut self, loc: Point<D>);
+}
+
+impl<const D: usize, T: UpdateLocation<D>> UpdateLocation<D> for &mut T {
+    fn update_location(&mut self, loc: Point<D>) {
+        (*self).update_location(loc)
+    }
+}
+
 impl<const D: usize> Location<D> for Point<D> {
     fn location(&self) -> Point<D> {
         *self
     }
 }
 
-impl<const D: usize> Location<D> for &Point<D> {
-    fn location(&self) -> Point<D> {
-        **self
+impl<const D: usize> UpdateLocation<D> for Point<D> {
+    fn update_location(&mut self, loc: Point<D>) {
+        *self = loc;
     }
 }
 
@@ -68,9 +91,9 @@ impl<const D: usize, T, L: Location<D>> Location<D> for (T, L) {
     }
 }
 
-impl<const D: usize, T, L: Location<D>> Location<D> for &(T, L) {
-    fn location(&self) -> Point<D> {
-        self.1.location()
+impl<const D: usize, T, L: UpdateLocation<D>> UpdateLocation<D> for (T, L) {
+    fn update_location(&mut self, loc: Point<D>) {
+        self.1.update_location(loc);
     }
 }
 
@@ -80,9 +103,9 @@ impl<const D: usize, L: Location<D>, N: NodeId> Location<D> for Node<L, N> {
     }
 }
 
-impl<const D: usize, L: Location<D>, N: NodeId> Location<D> for &Node<L, N> {
-    fn location(&self) -> Point<D> {
-        self.data().location()
+impl<const D: usize, N: NodeId, L: UpdateLocation<D>> UpdateLocation<D> for Node<L, N> {
+    fn update_location(&mut self, loc: Point<D>) {
+        self.data_mut().update_location(loc);
     }
 }
 
