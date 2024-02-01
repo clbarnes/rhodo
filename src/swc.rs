@@ -4,7 +4,7 @@ pub use swc_neuron;
 use swc_neuron::{structures::StructureIdentifier, SwcSample};
 use swc_neuron::{Header, SampleId, SwcLines};
 
-use crate::error::{EdgeBuild, IdAbsent, InvalidId};
+use crate::error::EdgeBuild;
 use crate::spatial::{Location, Point, UpdateLocation};
 use crate::Tree;
 
@@ -47,6 +47,7 @@ impl<S: StructureIdentifier> UpdateLocation<3> for SwcData<S> {
 pub fn read_swc<S: StructureIdentifier, R: BufRead>(
     reader: R,
 ) -> Result<Tree<SwcData<S>, SampleId>, String> {
+    // todo: proper error handling
     let mut it = SwcLines::<S, R>::new(reader)
         .map_err(|_e| "could not read header".to_string())?
         .filter_map(|res| {
@@ -106,6 +107,7 @@ pub fn write_swc<S: StructureIdentifier, D: HasSwcData<S>, W: Write, H: Header>(
     header: Option<H>,
     mut writer: W,
 ) -> io::Result<()> {
+    // todo: proper error handling
     if let Some(h) = header {
         for line in h.to_string().lines() {
             write!(writer, "#")?;
