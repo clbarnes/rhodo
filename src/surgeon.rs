@@ -3,7 +3,7 @@ use crate::{
     error::{IdAbsent, IdPresent, InvalidId},
     hash::{FastMap, FastSet, HashMapExt},
     spatial::Precision,
-    Location, NodeId, Tree,
+    Location, Node, NodeId, Tree,
 };
 
 /// Struct for splitting, pruning, and joining trees.
@@ -26,6 +26,7 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
         self.into()
     }
 
+    /// Graft another tree onto this one as a child of the given node.
     pub fn graft(&mut self, parent: N, other: Tree<D, N>) -> Result<(), InvalidId<N>> {
         let other_root = other.root;
         if !self.0.node_mut(&parent)?.children.insert(other.root) {
@@ -45,13 +46,15 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
         Ok(())
     }
 
-    pub fn prune_above(&mut self, new_root: N) -> Result<usize, IdAbsent<N>> {
+    /// Make the given node the new root; remove all nodes above it and in sibling branches.
+    ///
+    /// Returns removed nodes.
+    pub fn prune_above(&mut self, new_root: N) -> Result<Vec<Node<D, N>>, IdAbsent<N>> {
         if &new_root == self.0.root() {
-            return Ok(0);
+            return Ok(vec![]);
         }
 
         let mut ancs = vec![];
-        let mut count = 0;
         let mut prev = new_root;
         let mut to_prune_below = vec![];
 
@@ -69,29 +72,34 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
             prev = anc;
         }
 
+        let mut out = Vec::default();
+
         // prune below each sibling, and then remove the sibling itself
         for c in to_prune_below {
-            count += self.prune_below_including(c)? + 1;
+            out.extend(self.prune_below_including(c)?);
         }
 
         // remove the ancestors
         for anc in ancs {
-            self.0.remove_unchecked(anc)?;
-            count += 1;
+            out.push(self.0.remove_unchecked(anc)?);
         }
         self.0.reroot(new_root)?;
-        Ok(count)
+        Ok(out)
     }
 
-    /// Panics if root is given
-    fn prune_below_including(&mut self, proximal_removed: N) -> Result<usize, IdAbsent<N>> {
-        let count = self.prune_below(proximal_removed)? + 1;
-        self.0.remove(proximal_removed)?;
-        Ok(count)
+    fn prune_below_including(
+        &mut self,
+        proximal_removed: N,
+    ) -> Result<Vec<Node<D, N>>, IdAbsent<N>> {
+        let mut out = self.prune_below(proximal_removed)?;
+        out.push(self.0.remove(proximal_removed)?);
+        Ok(out)
     }
 
     /// Removes the slab containing the given node, and everything below it.
-    pub fn prune_containing(&mut self, node: N) -> Result<usize, IdAbsent<N>> {
+    ///
+    /// Returns removed nodes.
+    pub fn prune_containing(&mut self, node: N) -> Result<Vec<Node<D, N>>, IdAbsent<N>> {
         let mut it = self.0.ancestors(node)?;
         let mut child = it.next().unwrap();
 
@@ -105,15 +113,18 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
         self.prune_below(child)
     }
 
-    pub fn prune_below(&mut self, new_leaf: N) -> Result<usize, IdAbsent<N>> {
+    /// Remove all nodes below the given node.
+    ///
+    /// Returns removed nodes.
+    pub fn prune_below(&mut self, new_leaf: N) -> Result<Vec<Node<D, N>>, IdAbsent<N>> {
         let v = self.0.dfs(new_leaf)?.skip(1).collect::<Vec<_>>();
-        let count = v.len();
+        let mut out = Vec::with_capacity(v.len() + 1);
         for n in v {
-            self.0.remove_unchecked(n)?;
+            out.push(self.0.remove_unchecked(n)?);
         }
         self.0.node_mut(&new_leaf)?.children.clear();
         self.0.leaves.insert(new_leaf);
-        Ok(count)
+        Ok(out)
     }
 
     /// Splits the tree into 2 by cutting the edge *above* `new_root`.
@@ -163,7 +174,9 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
         Ok(Some(std::mem::replace(&mut self.0, lower)))
     }
 
-    pub fn prune_beyond_steps(&mut self, steps: usize) -> usize {
+    /// Remove all nodes further than the given path length from the root,
+    /// returning removed nodes.
+    pub fn prune_beyond_steps(&mut self, steps: usize) -> Vec<Node<D, N>> {
         let mut to_visit = vec![(self.0.node(&self.0.root).unwrap(), 0)];
         let mut to_prune = vec![];
         while let Some((parent, from_root)) = to_visit.pop() {
@@ -177,20 +190,21 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
                 }
             }
         }
-        let mut count = 0;
-        for p in to_prune {
-            count += self.prune_below_including(p).unwrap();
-        }
-        count
+        to_prune
+            .into_iter()
+            .flat_map(|p| self.prune_below_including(p).unwrap())
+            .collect()
     }
 
-    pub fn prune_beyond_branches(&mut self, steps: usize) -> usize {
+    /// Remove all nodes more than the given number of branches from the root,
+    /// returning removed nodes.
+    pub fn prune_beyond_branches(&mut self, n_branches: usize) -> Vec<Node<D, N>> {
         let mut to_visit = vec![(self.0.node(&self.0.root).unwrap(), 0)];
         let mut to_prune = vec![];
         while let Some((parent, from_root)) = to_visit.pop() {
             match parent.node_type() {
                 crate::node::NodeType::Branch(cs) => {
-                    if from_root >= steps {
+                    if from_root >= n_branches {
                         to_prune.push(parent.id());
                     } else {
                         to_visit
@@ -203,14 +217,14 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
                 _ => (),
             }
         }
-        let mut count = 0;
-        for p in to_prune {
-            count += self.prune_below(p).unwrap();
-        }
-        count
+        to_prune
+            .into_iter()
+            .flat_map(|p| self.prune_below(p).unwrap())
+            .collect()
     }
 
-    pub fn prune_below_strahler(&mut self, threshold: usize) -> usize {
+    /// Remove nodes whose strahler index is below the given threshold, returning removed nodes.
+    pub fn prune_below_strahler(&mut self, threshold: usize) -> Vec<Node<D, N>> {
         let mut branch_strahlers: FastMap<_, _> = self
             .0
             .branches()
@@ -260,15 +274,16 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
 
         to_prune
             .into_iter()
-            .map(|c| self.prune_below_including(c).unwrap_or(0))
-            .sum()
+            .flat_map(|c| self.prune_below_including(c).unwrap_or_default())
+            .collect()
     }
 }
 
 // todo: make generic over dimensionality
 impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
-    /// Returns number of pruned nodes.
-    pub fn prune_beyond_distance(&mut self, dist: Precision) -> usize {
+    /// Remove all nodes further than the given geodesic distance from the root,
+    /// returning removed nodes.
+    pub fn prune_beyond_distance(&mut self, dist: Precision) -> Vec<Node<D, N>> {
         let mut to_visit = vec![(self.0.node(&self.0.root).unwrap(), 0.0)];
         let mut to_prune = vec![];
         while let Some((parent, from_root)) = to_visit.pop() {
@@ -285,14 +300,14 @@ impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
         }
         to_prune
             .into_iter()
-            .map(|p| self.prune_below_including(p).unwrap())
-            .sum()
+            .flat_map(|p| self.prune_below_including(p).unwrap())
+            .collect()
     }
 
-    /// Remove short terminal branches.
+    /// Remove short terminal branches, returning removed nodes.
     ///
     /// Recursive: if a branch has all but one of its children removed, it may be removed if the next branch up is close enough.
-    pub fn prune_twigs(&mut self, threshold: Precision) -> usize {
+    pub fn prune_twigs(&mut self, threshold: Precision) -> Vec<Node<D, N>> {
         // todo: test this hard
 
         // child ID, distance from leaf
@@ -372,15 +387,15 @@ impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
 
         to_prune
             .into_iter()
-            .map(|n| {
+            .flat_map(|n| {
                 if n == self.0.root {
-                    0
+                    vec![]
                 } else {
                     // we might try to prune a parent branch,
                     // and then some child branch, so paper over the IdAbsent errors
-                    self.prune_below_including(n).unwrap_or(0)
+                    self.prune_below_including(n).unwrap_or_default()
                 }
             })
-            .sum()
+            .collect()
     }
 }
