@@ -274,7 +274,7 @@ impl<D, N: NodeId> TreeSurgeon<D, N> {
 
         to_prune
             .into_iter()
-            .flat_map(|c| self.prune_below_including(c).unwrap_or(vec![]))
+            .flat_map(|c| self.prune_below_including(c).unwrap_or_default())
             .collect()
     }
 }
@@ -393,7 +393,7 @@ impl<D: Location<3>, N: NodeId> TreeSurgeon<D, N> {
                 } else {
                     // we might try to prune a parent branch,
                     // and then some child branch, so paper over the IdAbsent errors
-                    self.prune_below_including(n).unwrap_or(vec![])
+                    self.prune_below_including(n).unwrap_or_default()
                 }
             })
             .collect()
