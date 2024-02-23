@@ -28,6 +28,9 @@ pub use surgeon::TreeSurgeon;
 
 pub mod simplify;
 
+#[cfg(feature = "serde")]
+mod serialize;
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
