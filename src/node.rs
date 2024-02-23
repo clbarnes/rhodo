@@ -17,7 +17,7 @@ pub struct Node<D, N: NodeId = u64> {
     id: N,
     pub(crate) parent: Option<N>,
     pub(crate) children: FastSet<N>,
-    data: D,
+    pub(crate) data: D,
 }
 
 impl<D, N: NodeId> PartialEq for Node<D, N> {
